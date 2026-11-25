@@ -1,0 +1,79 @@
+{
+  "name": "@yieldkit/logger",
+  "version": "0.1.0",
+  "description": "Structured Effect logging with secret redaction, error summaries and OTLP export of traces, metrics and logs.",
+  "keywords": [
+    "effect",
+    "effect-ts",
+    "logger",
+    "logging",
+    "opentelemetry",
+    "otlp",
+    "redaction"
+  ],
+  "homepage": "https://github.com/yieldkit/logger#readme",
+  "bugs": "https://github.com/yieldkit/logger/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yieldkit/logger.git"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./otlp": {
+      "types": "./dist/otlp/index.d.ts",
+      "default": "./dist/otlp/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "check": "effect-tsgo vp check",
+    "lint:fix": "effect-tsgo vp check --fix",
+    "prepack": "vp pack",
+    "prepare": "vp config",
+    "ready": "pnpm check && vp test",
+    "test": "vp test",
+    "test:package": "node scripts/package-smoke.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "catalog:",
+    "@types/node": "catalog:",
+    "@yieldkit/oxlint-config": "catalog:",
+    "effect": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "~4.1.5"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.23.0",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
+  }
+}

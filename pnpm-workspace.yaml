@@ -1,0 +1,23 @@
+catalogMode: prefer
+
+catalog:
+  '@effect/tsgo': 0.73.4
+  '@types/node': 26.6.6
+  '@yieldkit/oxlint-config': 0.4.1
+  effect: 4.1.5
+  typescript: ^7.0.2
+  vite: npm:@voidzero-dev/vite-plus-core@8.3.8001
+  vite-plus: 1.8.0
+  vitest: 5.1.1
+overrides:
+  vite@*: 'catalog:'
+  vitest@*: 'catalog:'
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: '*'
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@yieldkit/oxlint-config@0.4.0 || 0.4.1'

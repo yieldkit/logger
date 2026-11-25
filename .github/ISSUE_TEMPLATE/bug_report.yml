@@ -1,0 +1,40 @@
+name: Bug report
+description: A log line is wrong, a value is not masked as documented, or logging fails or slows down.
+title: 'bug: '
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: '@yieldkit/logger version'
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: effect
+    attributes:
+      label: effect version
+      placeholder: 4.1.5
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: The smallest program that shows the problem, with its layer setup. Use made-up secrets.
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: The log line or error you got.
+    validations:
+      required: true
