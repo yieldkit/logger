@@ -482,6 +482,34 @@ describe('withRedaction', () => {
 });
 
 describe('withTracerRedaction', () => {
+  it('keeps the traced operation running when event attribute keys cannot be listed', async () => {
+    const spans: Array<Tracer.NativeSpan> = [];
+    const tracer = withTracerRedaction(
+      Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      }),
+    );
+    const attributes = new Proxy(
+      {},
+      {
+        ownKeys: () => {
+          throw new Error('attributes unavailable');
+        },
+      },
+    );
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const span = yield* Effect.currentSpan;
+        span.event('evt', 0n, attributes);
+      }).pipe(Effect.withSpan('op'), Effect.withTracer(tracer)),
+    );
+    expect(spans[0]?.events[0]?.[2]).toEqual({});
+  });
+
   it('honours the redacted names of Effect Headers passed as event and link attributes', async () => {
     const spans: Array<Tracer.NativeSpan> = [];
     const tracer = withTracerRedaction(
