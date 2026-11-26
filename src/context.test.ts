@@ -19,6 +19,25 @@ class UpstreamTestError extends Data.TaggedError('UpstreamTestError')<{
 }> {}
 
 describe('withLogContext', () => {
+  it('ignores revoked fields when annotating an effect', async () => {
+    const revoked = Proxy.revocable({ requestId: 'req-42' }, {});
+    revoked.revoke();
+
+    const program = logInfo('context').pipe(withLogContext(revoked.proxy));
+    const { logs } = await Effect.runPromise(captureLogs(program));
+    expect(logs[0]?.annotations).toEqual({});
+  });
+
+  it('ignores revoked fields when annotating a scope', async () => {
+    const revoked = Proxy.revocable({ requestId: 'req-42' }, {});
+    revoked.revoke();
+
+    const annotateScope = withLogContextScoped(revoked.proxy);
+    const program = Effect.scoped(Effect.andThen(annotateScope, logInfo('context')));
+    const { logs } = await Effect.runPromise(captureLogs(program));
+    expect(logs[0]?.annotations).toEqual({});
+  });
+
   it('keeps scoped annotations inside the scope and applies the next annotation after it', async () => {
     const err = new UpstreamTestError({ message: 'Rate limited upstream', status: 429 });
     const { logs } = await Effect.runPromise(

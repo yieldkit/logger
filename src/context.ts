@@ -50,23 +50,35 @@ const annotateWith = <A, E, R>(
 };
 
 /**
+ * Checks whether fields need the running fiber's context without letting a proxy throw.
+ */
+const needsFiberContext = (fields: LogFields): boolean => {
+  try {
+    return Redactable.isRedactable(fields);
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Annotates `effect` with `fields`. A set of only `undefined` values is a no-op. A `Redactable`
  * record (Effect's `Headers`) is resolved when the effect runs, so the redacted names in the
- * running fiber's context apply.
+ * running fiber's context apply. A record whose keys cannot be listed adds no annotations.
  */
 export const withLogContext =
   (fields: LogFields) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-    Redactable.isRedactable(fields)
+    needsFiberContext(fields)
       ? Effect.suspend(() => annotateWith(effect, fields))
       : annotateWith(effect, fields);
 
 /**
  * Annotates the current scope with `fields`. A set of only `undefined` values is a no-op. A
- * `Redactable` record (Effect's `Headers`) is resolved when the effect runs.
+ * `Redactable` record (Effect's `Headers`) is resolved when the effect runs. A record whose keys
+ * cannot be listed adds no annotations.
  */
 export const withLogContextScoped = (fields: LogFields): Effect.Effect<void, never, Scope.Scope> =>
-  Redactable.isRedactable(fields)
+  needsFiberContext(fields)
     ? Effect.suspend(() => annotateScopedWith(fields))
     : annotateScopedWith(fields);
 
