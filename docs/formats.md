@@ -19,9 +19,38 @@
 | `true`      | every line            | nothing         |
 | `false`     | nothing               | every line      |
 
-The `json`, `structured` and `logfmt` formats write through Effect's `Console` service with `console.error` and `console.log` only, never `console.debug` or `console.info`. For `pretty`, the routing applies in terminal runtimes; in a browser, Effect's pretty logger always writes with `console.log`.
+Routing applies to every format in Node and Bun.
 
 ## The record
+
+With `NODE_ENV=production` the format is JSON, one record per line (indented here for reading):
+
+```json
+{
+  "timestamp": "2026-11-25T19:32:56.265Z",
+  "level": "ERROR",
+  "service": "worker",
+  "env": "production",
+  "message": "item.sync.failed",
+  "fiberId": "#1",
+  "annotations": {
+    "itemId": "a1",
+    "errorMessage": "upstream 503",
+    "errorTag": "FetchError",
+    "errorName": "FetchError",
+    "errorStatus": 503
+  },
+  "spans": {},
+  "cause": "FetchError: upstream 503\n    at <anonymous> (src/main.ts:12:47)",
+  "error": {
+    "kind": "fail",
+    "message": "upstream 503",
+    "tag": "FetchError",
+    "name": "FetchError",
+    "status": 503
+  }
+}
+```
 
 A JSON line is a `StructuredLogRecord`, and `error` is an `ErrorSummary`:
 
@@ -47,10 +76,7 @@ A JSON line longer than `maxLineBytes` (UTF-8, newline included; default `DEFAUL
 
 1. `truncated: true` is added.
 2. `cause`, then `error.message`, then `message` is cut to the longest start that fits, ending in ` …[truncated]`. It stops as soon as the line fits.
-3. If that is not enough, the line becomes a minimal record: `timestamp`, `level`, the identity and trace fields, the start of the message, `truncated` and the error's `kind`, `tag`, `name` and `status`.
-4. Under a very small cap the minimal record drops `version`, `env`, `service`, `spanId` and `traceId` in that order. If it still doesn't fit, only `timestamp`, `level` and `truncated` are left. That record is about 80 bytes and is written even when the cap is smaller.
-
-A `maxLineBytes` that is not a finite positive number (a `Number(process.env.X)` that came out `NaN`) uses the default. The other formats are not capped.
+3. If that is not enough, the line becomes a minimal record (`timestamp`, `level`, identity and trace fields, the start of the message, `truncated` and the error's `kind`, `tag`, `name`, `status`), dropping fields under a very small cap.
 
 ## Custom loggers
 

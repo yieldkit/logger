@@ -17,7 +17,7 @@ redactLogValue({
 });
 ```
 
-- **`Redacted` and `Redactable` values** are hidden wherever they appear: fields, messages, errors and their `cause` chains, fail and die values of a cause, error summaries, Effect `Headers` (which honour `Headers.CurrentRedactedNames`) and span attributes. A `Redactable` value is replaced by its redacted form. An object that only carries the `Redacted` marker key (parsed JSON, say) becomes `<redacted>`.
+- **`Redacted` and `Redactable` values** are hidden wherever they appear, Effect `Headers` included (they honour `Headers.CurrentRedactedNames`). A `Redactable` value is replaced by its redacted form. An object that only carries the `Redacted` marker key (parsed JSON, say) becomes `<redacted>`.
 - **Values under a sensitive key name** are masked whole, whatever they hold: an object, array, `Map` or `Set` under such a key becomes one `<redacted>`. Keys are compared in lowercase with `-`, `_`, `.` and spaces removed, and a key matches when it contains one of the built-in names:
 
   `password`, `passwd`, `passphrase`, `pwd`, `secret`, `token`, `authorization`, `cookie`, `apiKey`, `accessKey`, `privateKey`, `authKey`, `clientKey`, `signingKey`, `encryptionKey`, `masterKey`, `session`, `signature`, `credential`, `bearer`, `jwt`.
@@ -26,9 +26,9 @@ redactLogValue({
 
 - **Your own names.** `sensitiveKeys` adds names; a value under one is always masked, numbers and booleans included. `allowKeys` exempts names from the built-in list (`tokenType`, `expiresIn`): a value under an allowed key is redacted by its own content like any other. A key in both lists is masked. See [Your own keys](#your-own-keys).
 - **Causes.** Each fail and die value is replaced by its redacted form when it is `Redactable`, a value that is not an `Error` is redacted like a field, and an `Error`'s `cause` chain is treated the same way, so `new Error('x', { cause: { password } })` renders `password` masked.
-- **The walk never throws and its cost is bounded.** A cycle becomes `[Circular]`, nesting deeper than 8 levels `[Truncated]`, and a value that throws when read `[Unserializable]`. Binary data (`ArrayBuffer`, typed arrays, `DataView`, `Buffer`) becomes `[Uint8Array 4096 bytes]`. An array or `Set` keeps its first 1,000 items, then `[n more items]`; a `Map` or object its first 1,000 entries, then `[more]: '[n more entries]'`. After 10,000 values in one call, masked ones included, the rest of the array becomes one `[Truncated]` item and the rest of the record one `[more]: '[Truncated]'` entry.
+- **The walk never throws.** Cycles become `[Circular]`, nesting past 8 levels `[Truncated]`, unreadable values `[Unserializable]`, binary data `[Uint8Array 4096 bytes]`. Collections keep their first 1,000 items.
 
-`redactLogValue` returns a deep copy and never modifies its input. An `Error` becomes `{ name, message, ...own properties, cause }` without its stack, a `Map` an object keyed by `String(key)`, a `Set` an array, an object with `toJSON` its redacted `toJSON()` result, and a function `[Function]`. Keys are written as they are.
+`redactLogValue` returns a deep copy and never mutates its input. An `Error` becomes `{ name, message, …, cause }` without its stack, a `Map` an object, a `Set` an array and a function `[Function]`.
 
 ## Convenience
 
@@ -64,7 +64,7 @@ const LoggerLayer = LoggerLive({ service: 'api', redaction });
 const TracingLayer = tracingLayer('api', { redaction });
 ```
 
-A string entry matches a whole key with the same letters and digits in any case or separator style (`'tokenType'` matches `token_type`, not `refreshTokenType`). A `RegExp` entry in `sensitiveKeys` is tested against the key as written. It is accepted by `LoggerLive`, `makeLoggerLayer`, `telemetryLayer`, `tracingLayer`, the logger builders, `makeTestLogger`, `captureLogs`, `makeStartupFailureTeardown` and `describeStartupFailure`. The crash handlers take no `redaction`: crash lines are redacted by the logger layer they are built on. Logs and spans are redacted separately, so pass the same value to the logger and the telemetry layer.
+A string entry matches a whole key in any case or separator style (`'tokenType'` matches `token_type`, not `refreshTokenType`). A `RegExp` is tested against the key as written. Every layer, logger builder and test helper takes `redaction`; the crash handlers use the logger layer's. Logs and spans are redacted separately, so pass the same value to both.
 
 ## Functions
 
@@ -85,3 +85,8 @@ REDACTED_LOG_VALUE;                // '<redacted>'
 ```
 
 With your own options, `makeLogRedaction(options)` returns the same functions as a `LogRedaction` (`redactValue`, `redactString`, `sanitizeCause`, `withRedaction`, `withTracerRedaction`). `defaultLogRedaction` is the built-in one.
+
+```ts
+const redaction = makeLogRedaction({ sensitiveKeys: ['customerRef'] });
+redaction.redactValue({ customerRef: 'c-1' }); // { customerRef: '<redacted>' }
+```
