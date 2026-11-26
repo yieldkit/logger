@@ -338,7 +338,9 @@ const LogStderrConfig = Config.schema(LogStderrInputSchema, 'LOG_STDERR').pipe(
 
 /**
  * Reads logger settings from the environment and fills gaps from `defaults`. An invalid
- * `LOG_LEVEL`, `LOG_FORMAT`, `LOG_STDERR`, or `LOG_COLORS` fails with `ConfigError`.
+ * `LOG_LEVEL`, `LOG_FORMAT`, `LOG_STDERR`, or `LOG_COLORS` fails with `ConfigError`. Surrounding
+ * whitespace is removed from `NODE_ENV`. A missing or blank value uses `defaults.env` or
+ * `development`.
  */
 export const readLoggerConfig = (
   defaults: LoggerLayerOptions = {},
@@ -348,10 +350,14 @@ export const readLoggerConfig = (
     format: Config.option(LogFormatConfig),
     stderr: Config.option(LogStderrConfig),
     colors: Config.option(LogColorsConfig),
-    nodeEnv: Config.option(Config.NonEmptyString('NODE_ENV')),
+    nodeEnv: Config.String('NODE_ENV').pipe(
+      Config.map((value) => value.trim()),
+      Config.option,
+    ),
   }).pipe(
     Config.map(({ minLevel, format, stderr, colors, nodeEnv }): ResolvedLoggerConfig => {
-      const env = Option.getOrElse(nodeEnv, () => defaults.env ?? 'development');
+      const configuredEnv = Option.filter(nodeEnv, (value) => value !== '');
+      const env = Option.getOrElse(configuredEnv, () => defaults.env ?? 'development');
       const configuredFormat = Option.getOrElse(format, () => defaults.format ?? 'auto');
       return {
         service: defaults.service,
