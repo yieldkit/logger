@@ -83,6 +83,22 @@ describe('resolveLogFormat', () => {
 });
 
 describe('readLoggerConfig', () => {
+  it('trims surrounding whitespace from NODE_ENV', async () => {
+    const provider = ConfigProvider.fromEnv({ env: { NODE_ENV: '  testing  ' } });
+    const resolved = await Effect.runPromise(
+      readLoggerConfig().pipe(Effect.provideService(ConfigProvider.ConfigProvider, provider)),
+    );
+    expect(resolved.env).toBe('testing');
+  });
+
+  it('uses the default environment when NODE_ENV contains only whitespace', async () => {
+    const provider = ConfigProvider.fromEnv({ env: { NODE_ENV: '   ' } });
+    const resolved = await Effect.runPromise(
+      readLoggerConfig().pipe(Effect.provideService(ConfigProvider.ConfigProvider, provider)),
+    );
+    expect(resolved.env).toBe('development');
+  });
+
   it('reads logger settings from Effect ConfigProvider and rejects an invalid level', async () => {
     const provider = ConfigProvider.fromEnv({
       env: {
