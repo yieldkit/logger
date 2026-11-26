@@ -43,6 +43,13 @@ export default defineConfig({
         },
       },
       {
+        // Crash listeners are plain process callbacks: this is where they hand a crash to Effect.
+        files: ['src/crash.ts'],
+        rules: {
+          'slop/no-effect-run-outside-entry': 'off',
+        },
+      },
+      {
         // A logger accepts any value as a field, and the redacting fiber and span proxies forward
         // every member they do not replace to the real object.
         files: ['src/types.ts', 'src/redact.ts'],
