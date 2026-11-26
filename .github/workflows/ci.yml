@@ -58,8 +58,9 @@ jobs:
           test -z "$(git ls-files --others --exclude-standard)"
 
   bun:
-    name: Unit tests on Bun (ubuntu-latest)
-    # The README's examples run on Bun. Bun crashes in Vitest's default forks pool.
+    name: Package on Bun (ubuntu-latest)
+    # The README's examples run on Bun; this runs the unit tests and the installed-package smoke test
+    # under it.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -78,4 +79,9 @@ jobs:
           bun-version: 1.4.5
       - run: pnpm install --frozen-lockfile
       - name: Run the unit tests on Bun
+        # Bun crashes in Vitest's default forks pool.
         run: bun --bun node_modules/vite-plus/bin/vp test run --pool=threads
+      - name: Build and pack the npm package
+        run: pnpm pack --out "$RUNNER_TEMP/logger.tgz"
+      - name: Test the installed package on Bun
+        run: bun scripts/package-smoke.mjs "$RUNNER_TEMP/logger.tgz"
