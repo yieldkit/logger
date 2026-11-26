@@ -139,17 +139,23 @@ const isRedactedSpanMember = (property: PropertyKey): property is RedactedSpanMe
  * Redacts a record of log annotations or span, event or link attributes, keyed like log fields. A
  * `Redactable` record (Effect `Headers`) is replaced by its redacted form first, and a form that is
  * not an object gives an empty record. The record is copied entry by entry, so an entry named
- * `toJSON` stays data, and entries past the item limit become one `[more]` marker.
+ * `toJSON` stays data, and entries past the item limit become one `[more]` marker. A record whose
+ * keys cannot be listed gives an empty record.
  */
 const redactAttributes = (
   rules: CredentialRules,
   attributes: Readonly<Record<string, unknown>>,
-): RedactedLogRecord =>
-  withVisible(attributes, (visible) =>
-    typeof visible === 'object' && visible !== null
-      ? redactWalkRecord(startWalk(rules), visible, 0)
-      : {},
-  );
+): RedactedLogRecord => {
+  try {
+    return withVisible(attributes, (visible) =>
+      typeof visible === 'object' && visible !== null
+        ? redactWalkRecord(startWalk(rules), visible, 0)
+        : {},
+    );
+  } catch {
+    return {};
+  }
+};
 
 /**
  * Returns copies of `links` whose attributes are redacted like span attributes. The linked span is
