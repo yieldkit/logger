@@ -196,14 +196,14 @@ export const ownEntries = (
 
 /**
  * Lists the properties copied from an Error: `name`, `message`, its own enumerable properties (up
- * to {@link MAX_REDACT_ITEMS}) and its `cause`. The runtime defines `cause` as non-enumerable, so
- * it is added explicitly.
+ * to {@link MAX_REDACT_ITEMS}, excluding `stack`) and its `cause`. The runtime defines `cause` as
+ * non-enumerable, so it is added explicitly.
  */
 const errorEntries = (error: Error): Array<readonly [string, unknown]> => {
   const entries: Array<readonly [string, unknown]> = [
     ['name', error.name],
     ['message', error.message],
-    ...ownEntries(error, MAX_REDACT_ITEMS),
+    ...ownEntries(error, MAX_REDACT_ITEMS).filter(([key]) => key !== 'stack'),
   ];
   if (Object.hasOwn(error, 'cause') && !Object.keys(error).includes('cause')) {
     entries.push(['cause', error.cause]);

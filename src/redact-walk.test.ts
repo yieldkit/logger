@@ -138,6 +138,15 @@ describe('Redactable values', () => {
   });
 });
 
+describe('Error values', () => {
+  it('omits an enumerable Error stack from log fields', () => {
+    const error = new Error('ordinary');
+    Object.defineProperty(error, 'stack', { enumerable: true, value: 'Error: ordinary' });
+
+    expect(redactLogValue(error)).toEqual({ name: 'Error', message: 'ordinary' });
+  });
+});
+
 describe('walk budget', () => {
   it('summarizes binary data instead of copying it byte by byte', () => {
     const started = performance.now();
