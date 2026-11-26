@@ -195,12 +195,57 @@ describe('telemetryLayer', () => {
     expect(pathsOf(requests)).toEqual(['/v1/logs', '/v1/metrics']);
   });
 
+  it('ignores an invalid metrics timeout when metrics are turned off in code', async () => {
+    const { exit, requests } = await runTelemetry(
+      { OTEL_EXPORTER_OTLP_ENDPOINT: COLLECTOR, OTEL_EXPORTER_OTLP_METRICS_TIMEOUT: 'abc' },
+      emitSignals,
+      { signals: { metrics: false } },
+    );
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(pathsOf(requests)).toEqual(['/v1/logs', '/v1/traces']);
+  });
+
+  it('ignores invalid metrics compression when the exporter is set to none', async () => {
+    const { exit, requests } = await runTelemetry(
+      {
+        OTEL_EXPORTER_OTLP_ENDPOINT: COLLECTOR,
+        OTEL_METRICS_EXPORTER: 'none',
+        OTEL_EXPORTER_OTLP_METRICS_COMPRESSION: 'brotli',
+      },
+      emitSignals,
+    );
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(pathsOf(requests)).toEqual(['/v1/logs', '/v1/traces']);
+  });
+
   it('exports only the signal whose own endpoint is set', async () => {
     const { requests } = await runTelemetry(
       { OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: `${COLLECTOR}/custom-metrics` },
       emitSignals,
     );
     expect(requests.map((request) => request.url)).toEqual([`${COLLECTOR}/custom-metrics`]);
+  });
+
+  it('rejects an empty service name with a ConfigError when exporting metrics', async () => {
+    const { exit } = await runTelemetry(
+      { OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: `${COLLECTOR}/v1/metrics` },
+      Effect.void,
+      { serviceName: '' },
+    );
+    expect(exit).toMatchObject({
+      _tag: 'Failure',
+      cause: { reasons: [{ _tag: 'Fail', error: expect.any(Config.ConfigError) }] },
+    });
+  });
+
+  it('exports traces with an empty service name when only traces are configured', async () => {
+    const { exit, requests } = await runTelemetry(
+      { OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: `${COLLECTOR}/v1/traces` },
+      emitSignals,
+      { serviceName: '' },
+    );
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(pathsOf(requests)).toEqual(['/v1/traces']);
   });
 
   it('rejects an invalid endpoint, compression or timeout with a ConfigError', async () => {
