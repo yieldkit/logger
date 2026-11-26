@@ -19,7 +19,7 @@ logWithFields('Warn', 'item.sync.slow', { durationMs: 5200 }, cause); // any lev
 
 `logFailure` adds `errorMessage`, `errorTag`, `errorName` and `errorStatus` (when the error has them) before your own fields, so yours win on a clash. It reads them when the effect runs, and reading never throws. `errorMessage` is the error's `message`, or its `_tag` for an object without one; an object with neither gets no `errorMessage`, and its fields appear redacted in `cause` and `error.message`.
 
-A log call never fails because of what it logs. A value that cannot be read, such as a throwing getter or `toJSON`, or a revoked `Proxy`, is written as `[Unserializable]` (`UNSERIALIZABLE_LOG_VALUE`). A function is written as `[Function]`. If a logger installed by `LoggerLive`, `makeLoggerLayer` or `makeTestLogger` still cannot write a line (a line too large for `JSON.stringify`, say), it writes the message's string parts alone, without the cause, annotations and log spans, and drops the line when that fails too.
+A log call never fails because of what it logs. An unreadable value (a throwing getter, a revoked `Proxy`) is written as `[Unserializable]` and a function as `[Function]`. A line the logger still can't write falls back to its message alone.
 
 ## Context
 
@@ -50,4 +50,4 @@ describeError(error);       // a message for any value; never throws
 
 - `extractCauseSummary` picks the first fail, else the first die, else the first interrupt (message `Fiber interrupted`), and returns `undefined` for an empty cause. It is the `error` field of a JSON line.
 - The message, tag and name of both functions are masked with `redactLogString`. `status` is copied from a finite numeric `status` property.
-- `describeError` returns an `Error`'s `message` (or `name`), another object's `message` or `_tag`, or else the object's JSON with sensitive keys masked after its class name: `Credentials {"user":"u","password":"<redacted>"}`. It never calls the value's own `toString`. Its free text is not masked, so pass it through `redactLogString` before you store it.
+- `describeError` returns an `Error`'s `message` (or `name`), another object's `message` or `_tag`, or else the object's JSON with sensitive keys masked after its class name: `Credentials {"user":"u","password":"<redacted>"}`. Its free text is not masked, so pass it through `redactLogString` before you store it.

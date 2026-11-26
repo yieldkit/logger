@@ -8,9 +8,23 @@ import { flushOtlp, telemetryLayer, tracingLayer } from '@yieldkit/logger/otlp';
 
 `telemetryLayer(options: TelemetryOptions)` exports traces, metrics and logs over OTLP/HTTP and provides `OtlpExporter.Flusher`. It needs an `HttpClient`. `tracingLayer(serviceName, options?)` is the same layer with `serviceName` as the only required argument.
 
+```ts
+import { BunHttpClient } from '@effect/platform-bun';
+import { LoggerLive } from '@yieldkit/logger';
+import { telemetryLayer } from '@yieldkit/logger/otlp';
+import { Layer } from 'effect';
+
+const ObservabilityLive = telemetryLayer({ serviceName: 'api', serialization: 'json' }).pipe(
+  Layer.provide(BunHttpClient.layer),
+  Layer.provideMerge(LoggerLive({ service: 'api' })), // exporter warnings go through the redacted logger
+);
+```
+
+Every option:
+
 <!-- prettier-ignore -->
 ```ts
-const TelemetryLive = telemetryLayer({
+telemetryLayer({
   serviceName: 'api',                                   // service.name; OTEL_SERVICE_NAME is ignored
   serviceVersion: '1.4.0',                              // optional; wins over OTEL_SERVICE_VERSION
   environment: 'production',                            // optional; defaults to NODE_ENV
@@ -18,10 +32,8 @@ const TelemetryLive = telemetryLayer({
   serialization: 'protobuf',                            // default; 'json' is readable in tests
   headers: { 'x-api-key': apiKey },                     // optional; replaces the OTEL_*_HEADERS variables
   redaction: { sensitiveKeys: ['customerRef'] },        // optional; for span data
-}).pipe(Layer.provide(BunHttpClient.layer));
+});
 ```
-
-Build it on top of the logger layer (`Layer.provideMerge(LoggerLive(...))`), so warnings from the exporters go through the redacted logger, and provide it to the whole program.
 
 ## Environment variables
 
@@ -49,17 +61,19 @@ Spans are exported through `withTracerRedaction`: span and event names, attribut
 
 ## Logs
 
-Log records reach the exporter through the fan-out logger that `LoggerLive` and `makeLoggerLayer` install, after the logger's redaction and minimum level. So log export needs one of those layers, and only records logged by code the telemetry layer is provided to are exported: two runtimes in one process never share log exporters.
-
-The exporters are added with `logExportSinkLayer`, which registers each sink under a context key of its own; `logExportSinkLayer(make)` adds your own sink logger next to them. Sink layers compose any way: merged as siblings (`Layer.mergeAll(TelemetryLive, CollectLive)`), chained with `Layer.provide`, or provided to one part of the program, where the sink only receives that part's records. Two runtimes never reach each other's sinks, even when they are built with one shared memo map. A list provided directly as `LogExportSinks` (a context reference) is used too:
+Log records reach the exporter through the fan-out logger that `LoggerLive` and `makeLoggerLayer` install, after redaction, so log export needs one of them. `logExportSinkLayer(make)` adds your own sink next to the exporter. It receives the records of the code it is provided to; `LogExportSinks` is the underlying reference.
 
 ```ts
-import { logExportSinkLayer } from '@yieldkit/logger';
-import { Effect, Logger } from 'effect';
+import { LoggerLive, logExportSinkLayer } from '@yieldkit/logger';
+import { Effect, Layer, Logger } from 'effect';
 
 const records: Array<unknown> = [];
 const CollectLive = logExportSinkLayer(
   Effect.succeed(Logger.make((options) => records.push(options.message))),
+);
+
+const withSink = program.pipe(
+  Effect.provide(Layer.mergeAll(CollectLive, LoggerLive({ service: 'api' }))),
 );
 ```
 

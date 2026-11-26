@@ -18,11 +18,18 @@ LoggerLive({
 });
 ```
 
-With `LoggerLive`, a variable that is set wins over the option you pass; the option is the fallback. `service`, `version`, `includeTracerLogger`, `maxLineBytes` and `redaction` are code only.
+With `LoggerLive`, a set variable wins over the option.
+
+<!-- prettier-ignore -->
+```ts
+import { SilentLoggerLayer, makeLoggerLayer } from '@yieldkit/logger';
+import { Effect } from 'effect';
+
+const CliLoggerLive = makeLoggerLayer({ format: 'logfmt', minLevel: 'Debug' }); // never reads the environment
+const quiet = program.pipe(Effect.provide(SilentLoggerLayer));                  // drops every line
+```
 
 `minLevel` takes Effect's `LogLevel`, which is capitalised: `'All'`, `'Trace'`, `'Debug'`, `'Info'`, `'Warn'`, `'Error'`, `'Fatal'` or `'None'`. `LOG_LEVEL` accepts any case (see below).
-
-`makeLoggerLayer` has no `development` default for `env`: without one, lines carry no `env` and `auto` picks `pretty`.
 
 Both layers install the console logger, a redacted `Logger.tracerLogger` (unless `includeTracerLogger: false`), the fan-out logger that feeds OTLP log export (see [Telemetry](telemetry.md)) and the minimum level. `SilentLoggerLayer` sets the minimum level to `None` and drops every line.
 

@@ -64,60 +64,40 @@ In development the format is `pretty`:
 
 ```text
 [20:32:56.597] INFO (#1): item.sync.started
-itemId: a1
-attempt: 1
+  itemId: a1
+  attempt: 1
 [20:32:56.604] ERROR (#1): item.sync.failed
-FetchError: upstream 503
-    at <anonymous> (src/main.ts:12:47)
-itemId: a1
-errorMessage: upstream 503
-errorTag: FetchError
-errorName: FetchError
-errorStatus: 503
+  FetchError: upstream 503
+      at <anonymous> (src/main.ts:12:47)
+  itemId: a1
+  errorMessage: upstream 503
+  errorTag: FetchError
+  errorName: FetchError
+  errorStatus: 503
 ```
 
-With `NODE_ENV=production` it is JSON, one record per line (indented here for reading):
-
-```json
-{
-  "timestamp": "2026-11-25T19:32:56.262Z",
-  "level": "INFO",
-  "service": "worker",
-  "env": "production",
-  "message": "item.sync.started",
-  "fiberId": "#1",
-  "annotations": { "itemId": "a1", "attempt": 1 },
-  "spans": {}
-}
-{
-  "timestamp": "2026-11-25T19:32:56.265Z",
-  "level": "ERROR",
-  "service": "worker",
-  "env": "production",
-  "message": "item.sync.failed",
-  "fiberId": "#1",
-  "annotations": {
-    "itemId": "a1",
-    "errorMessage": "upstream 503",
-    "errorTag": "FetchError",
-    "errorName": "FetchError",
-    "errorStatus": 503
-  },
-  "spans": {},
-  "cause": "FetchError: upstream 503\n    at <anonymous> (src/main.ts:12:47)",
-  "error": { "kind": "fail", "message": "upstream 503", "tag": "FetchError", "name": "FetchError", "status": 503 }
-}
-```
+With `NODE_ENV=production` each line is one JSON record; see [Formats](docs/formats.md#the-record).
 
 `cursor: undefined` is dropped, `withLogContext` puts `itemId` on both lines, and `logFailure` adds the error's fields and a summary in `error`.
 
-`tracingLayer` exports only when an `OTEL_EXPORTER_OTLP_*ENDPOINT` is set, so the same setup runs locally without a collector. Without OTLP, drop the `otlp` import and provide `CrashHandlersLive.pipe(Layer.provideMerge(LoggerLive({ service: 'worker' })))`. Build the crash handlers on the logger layer like this: as siblings in an array or `Layer.mergeAll`, a crash reaches Effect's default logger unredacted.
+```ts
+import { CrashHandlersLive, LoggerLive } from '@yieldkit/logger';
+import { Layer } from 'effect';
+
+// No OTLP: crash handlers built on the logger, so crash lines are redacted.
+const MainLive = CrashHandlersLive.pipe(Layer.provideMerge(LoggerLive({ service: 'worker' })));
+```
+
+`tracingLayer` exports only when an `OTEL_EXPORTER_OTLP_*ENDPOINT` is set.
 
 ## Common tasks
 
 ### Add context and trace ids to every line
 
 ```ts
+import { logInfo, withLogContext } from '@yieldkit/logger';
+import { Effect } from 'effect';
+
 const createOrder = logInfo('order.created', {
   orderId: 'o-42',
   totalCents: 4200,
@@ -145,6 +125,9 @@ Use `withLogContextScoped` instead to keep the context until a `Scope` closes.
 ### Keep secrets out of logs
 
 ```ts
+import { logInfo } from '@yieldkit/logger';
+import { Redacted } from 'effect';
+
 const connect = logInfo('db.connect', {
   url: 'postgres://app:hunter2@db:5432/main',
   password: 'hunter2',
@@ -181,6 +164,8 @@ A secret written into prose (`"password=x"`) or under an innocent key (`{ value:
 ### Propagate request ids
 
 ```ts
+import { requestIdFromHeaders, withLogContext } from '@yieldkit/logger';
+
 const requestId = requestIdFromHeaders(request.headers); // x-request-id when valid, else a new UUID
 const handled = handle(request).pipe(withLogContext({ requestId }));
 ```
@@ -191,6 +176,8 @@ An id longer than 128 characters or containing anything other than letters, digi
 
 ```ts
 import { captureLogs } from '@yieldkit/logger/testing';
+import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
 
 const { logs } = await Effect.runPromise(captureLogs(syncItem('a1')));
 
@@ -203,6 +190,8 @@ Records are redacted like console output and nothing reaches the console. For a 
 ### Time an effect
 
 ```ts
+import { durationHistogram, recordDurationMs } from '@yieldkit/logger';
+
 const queryMs = durationHistogram('db_query_ms', 'Time spent in one query');
 const timed = runQuery.pipe(recordDurationMs(queryMs));
 ```
@@ -225,22 +214,7 @@ The duration is recorded in milliseconds on success, failure and interruption.
 
 ## Options
 
-`LoggerLive(defaults)` and `makeLoggerLayer(options)` take the same `LoggerLayerOptions`, all optional. With `LoggerLive`, a set environment variable wins over the option.
-
-| Option                | Variable     | Default                                      | Purpose                                                                      |
-| --------------------- | ------------ | -------------------------------------------- | ---------------------------------------------------------------------------- |
-| `service`             |              | none                                         | `service` on JSON and structured lines                                       |
-| `version`             |              | none                                         | `version` on JSON and structured lines                                       |
-| `env`                 | `NODE_ENV`   | `development` (`LoggerLive`), none otherwise | `env` on JSON and structured lines; `production` or `prod` makes `auto` JSON |
-| `format`              | `LOG_FORMAT` | `auto`                                       | `auto`, `json`, `structured`, `pretty` or `logfmt`                           |
-| `minLevel`            | `LOG_LEVEL`  | `Info`                                       | Lines below it are dropped                                                   |
-| `stderr`              | `LOG_STDERR` | `leveled`                                    | `leveled` sends Warn, Error and Fatal to stderr                              |
-| `colors`              | `LOG_COLORS` | `auto`                                       | ANSI colors for `pretty`                                                     |
-| `includeTracerLogger` |              | `true`                                       | Also write each line as an event on the current span                         |
-| `maxLineBytes`        |              | `16 * 1024`                                  | Cap on one JSON line, newline included                                       |
-| `redaction`           |              | none                                         | `{ sensitiveKeys, allowKeys, scrubText }`; see Redaction                     |
-
-An invalid variable fails `LoggerLive` with a `ConfigError`. The accepted spellings are in [Configuration](docs/configuration.md).
+`LoggerLive` reads `LOG_LEVEL`, `LOG_FORMAT`, `LOG_STDERR`, `LOG_COLORS` and `NODE_ENV`, falling back to the options you pass. Every option and accepted spelling is in [Configuration](docs/configuration.md).
 
 ## Development
 

@@ -11,7 +11,7 @@ const queryMs = durationHistogram('db_query_ms', 'Time spent in one query');
 const timed = runQuery.pipe(recordDurationMs(queryMs));
 ```
 
-The time is recorded on success, failure and interruption, read from the clock's monotonic time (`monotonicTimeNanos`), so a wall-clock step (NTP, a manual change) during the effect doesn't distort it. `TestClock.adjust` advances it in tests. A negative difference, possible only with a custom clock, records 0.
+The time is recorded on success, failure and interruption, read from the clock's monotonic time (`monotonicTimeNanos`), so a wall-clock step (NTP, a manual change) during the effect doesn't distort it. `TestClock.adjust` advances it in tests.
 
 ## Request ids
 
