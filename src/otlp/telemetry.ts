@@ -43,7 +43,7 @@ export type TelemetrySignals = {
 export type TelemetryOptions = {
   /**
    * `service.name` on the exported resource. It always takes precedence over `OTEL_SERVICE_NAME`,
-   * which is therefore ignored.
+   * which is therefore ignored. An empty name fails with `ConfigError` when metrics are exported.
    */
   readonly serviceName: string;
 
@@ -230,8 +230,9 @@ const OptionalEndpoint = Schema.Trim.pipe(
  * `makeLoggerLayer`, after the logger's redaction, so log export needs one of them, and only
  * records logged by code this layer is provided to are exported. The current loggers are not
  * replaced. With every signal off, the layer provides a `Flusher` whose `flush` does nothing. An
- * endpoint that is not an HTTP(S) URL, a compression other than `gzip` or `none`, or a timeout that
- * is not an integer fails with `ConfigError`.
+ * enabled signal with an endpoint that is not an HTTP(S) URL, a compression other than `gzip` or
+ * `none`, or a timeout that is not an integer fails with `ConfigError`. An empty service name also
+ * fails with `ConfigError` when metrics are exported.
  */
 export const telemetryLayer = (
   options: TelemetryOptions,
@@ -256,11 +257,26 @@ export const telemetryLayer = (
 
       const resource = yield* resolveResource(options);
       const redaction = resolveRedaction(options.redaction);
-      const signals = Layer.mergeAll(
-        tracesLayer(traces, resource, yield* exportSettings('traces', options), redaction),
-        metricsLayer(metrics, resource, yield* exportSettings('metrics', options)),
-        logsLayer(logs, resource, yield* exportSettings('logs', options)),
-      );
+      const traceExport =
+        traces === undefined
+          ? OtlpExporter.layerFlusher
+          : tracesLayer(traces, resource, yield* exportSettings('traces', options), redaction);
+      if (metrics !== undefined) {
+        const validateServiceName = Schema.decodeEffect(Schema.NonEmptyString)(
+          options.serviceName,
+        ).pipe(Effect.mapError((error) => new Config.ConfigError(error)));
+        yield* validateServiceName;
+      }
+
+      const metricExport =
+        metrics === undefined
+          ? OtlpExporter.layerFlusher
+          : metricsLayer(metrics, resource, yield* exportSettings('metrics', options));
+      const logExport =
+        logs === undefined
+          ? OtlpExporter.layerFlusher
+          : logsLayer(logs, resource, yield* exportSettings('logs', options));
+      const signals = Layer.mergeAll(traceExport, metricExport, logExport);
       return signals.pipe(Layer.provide(serializationLayer(options.serialization)));
     }),
   );
@@ -427,21 +443,16 @@ const resolveResource = Effect.fnUntraced(function* (options: TelemetryOptions) 
 });
 
 /**
- * Exports spans to `url` through a redacting tracer, or provides only the shared flusher when `url`
- * is undefined. Effect's OTLP tracer renders a failed span's cause into its status message and
- * `exception` events without going through a logger, so the tracer itself sanitizes exit causes and
- * attributes.
+ * Exports spans to `url` through a redacting tracer. Effect's OTLP tracer renders a failed span's
+ * cause into its status message and `exception` events without going through a logger, so the
+ * tracer itself sanitizes exit causes and attributes.
  */
 const tracesLayer = (
-  url: string | undefined,
+  url: string,
   resource: TelemetryResource,
   settings: ExportSettings,
   redaction: LogRedaction,
 ) => {
-  if (url === undefined) {
-    return OtlpExporter.layerFlusher;
-  }
-
   const tracer = OtlpTracer.make({ url, resource, ...settings }).pipe(
     Effect.map(redaction.withTracerRedaction),
   );
@@ -449,38 +460,20 @@ const tracesLayer = (
 };
 
 /**
- * Exports metrics to `url`, or provides only the shared flusher when `url` is undefined.
+ * Exports metrics to `url` and provides the shared flusher.
  */
-const metricsLayer = (
-  url: string | undefined,
-  resource: TelemetryResource,
-  settings: ExportSettings,
-) => {
-  if (url === undefined) {
-    return OtlpExporter.layerFlusher;
-  }
-
-  return OtlpMetrics.layer({ url, resource, ...settings });
-};
+const metricsLayer = (url: string, resource: TelemetryResource, settings: ExportSettings) =>
+  OtlpMetrics.layer({ url, resource, ...settings });
 
 /**
- * Exports log records to `url` through an OTLP logger added to the log export sinks, or provides
- * only the shared flusher when `url` is undefined. Records arrive already redacted by the logger
- * layer's fan-out logger. The sink stops taking records before its exporter flushes on shutdown.
+ * Exports log records to `url` through an OTLP logger added to the log export sinks. Records arrive
+ * already redacted by the logger layer's fan-out logger. The sink stops taking records before its
+ * exporter flushes on shutdown.
  */
-const logsLayer = (
-  url: string | undefined,
-  resource: TelemetryResource,
-  settings: ExportSettings,
-) => {
-  if (url === undefined) {
-    return OtlpExporter.layerFlusher;
-  }
-
-  return logExportSinkLayer(OtlpLogger.make({ url, resource, ...settings })).pipe(
+const logsLayer = (url: string, resource: TelemetryResource, settings: ExportSettings) =>
+  logExportSinkLayer(OtlpLogger.make({ url, resource, ...settings })).pipe(
     Layer.provideMerge(OtlpExporter.layerFlusher),
   );
-};
 
 /**
  * Picks the OTLP body encoding. Protobuf unless `json` is asked for.
