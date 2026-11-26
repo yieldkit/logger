@@ -1,6 +1,6 @@
 {
   "name": "@yieldkit/logger",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Structured Effect logging with secret redaction, error summaries and OTLP export of traces, metrics and logs.",
   "keywords": [
     "effect",
