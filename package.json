@@ -1,6 +1,6 @@
 {
   "name": "@yieldkit/logger",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Structured Effect logging with secret redaction, error summaries and OTLP export of traces, metrics and logs.",
   "keywords": [
     "effect",
@@ -64,7 +64,7 @@
     "vite-plus": "catalog:"
   },
   "peerDependencies": {
-    "effect": "~4.1.6"
+    "effect": "~4.1.7"
   },
   "devEngines": {
     "packageManager": {

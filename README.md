@@ -14,7 +14,7 @@ Every output goes through the same redaction: console lines, span events, export
 pnpm add @yieldkit/logger effect
 ```
 
-`effect` 4.1.6 or a later 4.1 patch is a peer dependency. Redaction relies on Effect internals, so a new Effect minor version needs a release of this package.
+`effect` 4.1.7 or a later 4.1 patch is a peer dependency. Redaction relies on Effect internals, so a new Effect minor version needs a release of this package.
 
 | Import                     | Contents                                                                |
 | -------------------------- | ----------------------------------------------------------------------- |

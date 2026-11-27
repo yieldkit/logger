@@ -29,7 +29,7 @@ export default defineConfig({
     rules: {
       ...oxlintConfig.rules,
       // The OTLP exporters and their `HttpClient` live in Effect's unstable modules; this package
-      // builds on them by design, so its `effect` peer range (`~4.1.6`) only admits patch releases
+      // builds on them by design, so its `effect` peer range (`~4.1.7`) only admits patch releases
       // of the minor version it is tested against.
       'effecttsgo/unstable-api-usage': 'off',
     },
