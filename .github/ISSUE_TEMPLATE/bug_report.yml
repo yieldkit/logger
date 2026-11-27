@@ -14,7 +14,7 @@ body:
     id: effect
     attributes:
       label: effect version
-      placeholder: 4.1.6
+      placeholder: 4.1.7
     validations:
       required: true
   - type: textarea
